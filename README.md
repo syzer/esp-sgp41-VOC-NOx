@@ -152,6 +152,4 @@ The main application logic is in `src/bin/main.rs`. The project is set up with:
 
 To add SGP41 sensor functionality, modify the main loop to include sensor reading and data processing.
 
-## License
-
-This project is part of the Endress+Hauser development environment.
+// for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0-beta.1/examples/src/bin
