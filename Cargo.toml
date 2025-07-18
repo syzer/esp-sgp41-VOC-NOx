@@ -47,6 +47,10 @@ rtt-target = { version = "0.6.1", features = ["defmt"] }
 static_cell = { version = "2.1.0", features = ["nightly"] }
 trouble-host = { version = "0.1.0", features = ["gatt"] }
 
+# I2C dependencies
+embedded-hal-02 = { package = "embedded-hal", version = "0.2.7" }
+embedded-hal-async = "1.0.0"
+
 [dev-dependencies]
 embedded-test = { version = "0.6.0", features = [
   "defmt",

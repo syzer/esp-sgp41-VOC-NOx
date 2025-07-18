@@ -735,6 +735,8 @@ dependencies = [
  "defmt 1.0.1",
  "embassy-executor",
  "embassy-time",
+ "embedded-hal 0.2.7",
+ "embedded-hal-async",
  "embedded-io",
  "embedded-io-async",
  "embedded-test",
