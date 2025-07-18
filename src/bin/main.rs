@@ -19,83 +19,16 @@ use esp_hal::timer::timg::TimerGroup;
 use esp_wifi::ble::controller::BleConnector;
 use panic_rtt_target as _;
 use static_cell::StaticCell;
+use esp_sgp41_VOC_NOx::{calculate_crc, prepare_temp_hum_params};
+use esp_sgp41_VOC_NOx::hal::{HalI2c, I2cCompat};
 
 extern crate alloc;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Simple shim that lets an `embedded-hal 1.0` I²C implementation satisfy the
-// *blocking* traits from `embedded-hal 0.2` (needed by SGP41).
-
-pub type HalI2c<'a> = I2c<'a, esp_hal::Blocking>;
-
-pub struct I2cCompat<'a> {
-    inner: &'a mut HalI2c<'a>,
-}
-
-impl<'a> I2cCompat<'a> {
-    pub fn new(inner: &'a mut HalI2c<'a>) -> Self {
-        Self { inner }
-    }
-}
-
-impl<'a> Write for I2cCompat<'a> {
-    type Error = esp_hal::i2c::master::Error;
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.inner.write(addr, bytes)
-    }
-}
-
-impl<'a> Read for I2cCompat<'a> {
-    type Error = esp_hal::i2c::master::Error;
-    fn read(&mut self, addr: u8, buf: &mut [u8]) -> Result<(), Self::Error> {
-        self.inner.read(addr, buf)
-    }
-}
-
-impl<'a> WriteRead for I2cCompat<'a> {
-    type Error = esp_hal::i2c::master::Error;
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buf: &mut [u8]) -> Result<(), Self::Error> {
-        self.inner.write_read(addr, bytes, buf)
-    }
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 // SGP41 Commands
 const SGP41_ADDR: u8 = 0x59;
 const CMD_EXECUTE_CONDITIONING: [u8; 2] = [0x26, 0x12];
 const CMD_MEASURE_RAW_SIGNALS: [u8; 2] = [0x26, 0x19];
 
-// CRC calculation for SGP41
-fn calculate_crc(data: &[u8]) -> u8 {
-    let mut crc: u8 = 0xFF;
-    for &byte in data {
-        crc ^= byte;
-        for _ in 0..8 {
-            if crc & 0x80 != 0 {
-                crc = (crc << 1) ^ 0x31;
-            } else {
-                crc <<= 1;
-            }
-        }
-    }
-    crc
-}
-
-// Helper function to prepare temperature and humidity parameters
-fn prepare_temp_hum_params(temp_celsius: f32, humidity_percent: f32) -> [u8; 6] {
-    // Convert temperature and humidity to SGP41 format
-    let humidity_ticks = ((humidity_percent / 100.0) * 65535.0) as u16;
-    let temp_ticks = (((temp_celsius + 45.0) / 175.0) * 65535.0) as u16;
-
-    [
-        (humidity_ticks >> 8) as u8,
-        (humidity_ticks & 0xFF) as u8,
-        calculate_crc(&[(humidity_ticks >> 8) as u8, (humidity_ticks & 0xFF) as u8]),
-        (temp_ticks >> 8) as u8,
-        (temp_ticks & 0xFF) as u8,
-        calculate_crc(&[(temp_ticks >> 8) as u8, (temp_ticks & 0xFF) as u8]),
-    ]
-}
 
 /// Runs the mandatory 10‑second SGP41 conditioning phase.
 /// Blocks until the phase is finished.
@@ -108,7 +41,7 @@ async fn sgp41_conditioning_task(i2c: &mut I2cCompat<'static>, duration_secs: u8
     for i in 1..=duration_secs {
         info!("  Conditioning {}/{}", i, duration_secs);
 
-        // 25 °C / 50 % RH dummy compensation values
+        // 25°C / 50%RH dummy compensation values
         let params = prepare_temp_hum_params(25.0, 50.0);
         let mut cmd = [0u8; 8];
         cmd[0..2].copy_from_slice(&CMD_EXECUTE_CONDITIONING);
@@ -134,6 +67,63 @@ async fn sgp41_conditioning_task(i2c: &mut I2cCompat<'static>, duration_secs: u8
     }
 
     info!("Conditioning complete!");
+}
+
+#[embassy_executor::task]
+async fn sgp41_measurement_task(mut i2c: I2cCompat<'static>) {
+    // --- VOC/NOx index calibration constants ---
+    const VOC_OFFSET: f32 = 25000.0;
+    const VOC_SCALE: f32 = 50.0;   // tune so that raw≈30449 → index≈104
+    const NOX_OFFSET: f32 = 25000.0;
+    const NOX_SCALE: f32 = 50.0;
+
+    info!("Starting normal measurements…");
+
+    loop {
+        // Prepare measurement command with temperature (25 °C) and humidity (50 % RH).
+        let params = prepare_temp_hum_params(25.0, 50.0);
+        let mut cmd_with_params = [0u8; 8];
+        cmd_with_params[0] = CMD_MEASURE_RAW_SIGNALS[0];
+        cmd_with_params[1] = CMD_MEASURE_RAW_SIGNALS[1];
+        cmd_with_params[2..8].copy_from_slice(&params);
+
+        if i2c.write(SGP41_ADDR, &cmd_with_params).is_err() {
+            error!("Failed to send measurement command");
+            Timer::after(Duration::from_secs(1)).await;
+            continue;
+        }
+
+        Timer::after(Duration::from_millis(50)).await;
+
+        let mut buffer = [0u8; 6];
+        if i2c.read(SGP41_ADDR, &mut buffer).is_err() {
+            error!("Failed to read SGP41 measurement data");
+            Timer::after(Duration::from_secs(1)).await;
+            continue;
+        }
+
+        let voc_raw = u16::from_be_bytes([buffer[0], buffer[1]]);
+        let nox_raw = u16::from_be_bytes([buffer[3], buffer[4]]);
+
+        info!("SGP41 Raw Measurements:");
+        info!("  VOC Raw: {} ticks", voc_raw);
+        info!("  NOx Raw: {} ticks", nox_raw);
+
+        let voc_index = ((voc_raw as f32 - VOC_OFFSET) / VOC_SCALE).max(0.0);
+        let nox_index = ((nox_raw as f32 - NOX_OFFSET) / NOX_SCALE).max(0.0);
+
+        info!("  VOC Index (approx): {}", voc_index as u32);
+        info!("  NOx Index (approx): {}", nox_index as u32);
+
+        if voc_index > 180.0 {
+            warn!("High VOC levels detected!");
+        }
+        if nox_index > 30.0 {
+            warn!("High NOx levels detected!");
+        }
+
+        Timer::after(Duration::from_secs(1)).await;
+    }
 }
 
 // This creates a default app-descriptor required by the esp-idf bootloader.
@@ -214,66 +204,14 @@ async fn main(_spawner: Spawner) {
     let transport = BleConnector::new(&wifi_init, peripherals.BT);
     let _ble_controller = ExternalController::<_, 20>::new(transport);
 
-    // --- VOC/NOx index calibration constants ---
-    const VOC_OFFSET: f32 = 25000.0;
-    const VOC_SCALE: f32 = 50.0;   // tune so that raw≈30449 → index≈104
-    const NOX_OFFSET: f32 = 25000.0;
-    const NOX_SCALE: f32 = 50.0;
-
-    info!("Starting SGP41 sensor reading loop...");
-
     // Run the conditioning phase before entering the main measurement loop.
     sgp41_conditioning_task(&mut i2c, 10).await;
 
-    info!("Starting normal measurements…");
+    // Hand the I²C bus to the measurement task and let it run in the background.
+    _spawner.spawn(sgp41_measurement_task(i2c)).unwrap();
 
-    // Main measurement loop
+    // Nothing else to do here; park the main task.
     loop {
-        // Prepare measurement command with temperature and humidity
-        let params = prepare_temp_hum_params(25.0, 50.0); // 25°C, 50% RH
-        let mut cmd_with_params = [0u8; 8];
-        cmd_with_params[0] = CMD_MEASURE_RAW_SIGNALS[0];
-        cmd_with_params[1] = CMD_MEASURE_RAW_SIGNALS[1];
-        cmd_with_params[2..8].copy_from_slice(&params);
-
-        if i2c.write(SGP41_ADDR, &cmd_with_params).is_err() {
-            error!("Failed to send measurement command");
-            error!("Check sensor connection and power supply");
-            Timer::after(Duration::from_secs(1)).await;
-            continue; // Retry after 1 second
-        }
-
-        embassy_time::Timer::after(Duration::from_millis(50)).await;
-        let mut buffer = [0u8; 6]; // 2 bytes VOC + 1 CRC + 2 bytes NOx + 1 CRC
-        if i2c.read(SGP41_ADDR, &mut buffer).is_err() {
-            error!("Failed to read SGP41 measurement data");
-            error!("Check sensor connection and power supply");
-            Timer::after(Duration::from_secs(1)).await;
-            continue; // Retry after 1 second
-        }
-        let voc_raw = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
-        let nox_raw = ((buffer[3] as u16) << 8) | (buffer[4] as u16);
-
-        info!("SGP41 Raw Measurements:");
-        info!("  VOC Raw: {} ticks", voc_raw);
-        info!("  NOx Raw: {} ticks", nox_raw);
-
-        // Compute floating‑point VOC/NOx indices
-        let voc_index = ((voc_raw as f32 - VOC_OFFSET) / VOC_SCALE).max(0.0);
-        let nox_index = ((nox_raw as f32 - NOX_OFFSET) / NOX_SCALE).max(0.0);
-
-        info!("  VOC Index (approx): {}", voc_index as u32);
-        info!("  NOx Index (approx): {}", nox_index as u32);
-
-        // Quality indicators
-        if voc_index > 180.0 {
-            warn!("High VOC levels detected!");
-        }
-        if nox_index > 30.0 {
-            warn!("High NOx levels detected!");
-        }
-
-        // Wait 1 second between measurements
-        Timer::after(Duration::from_secs(1)).await;
+        Timer::after(Duration::from_secs(60)).await;
     }
 }
