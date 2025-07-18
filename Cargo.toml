@@ -50,6 +50,7 @@ trouble-host = { version = "0.1.0", features = ["gatt"] }
 # I2C dependencies
 embedded-hal-02 = { package = "embedded-hal", version = "0.2.7" }
 embedded-hal-async = "1.0.0"
+log = "0.4.27"
 
 [dev-dependencies]
 embedded-test = { version = "0.6.0", features = [

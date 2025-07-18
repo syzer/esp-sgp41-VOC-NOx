@@ -97,12 +97,51 @@ fn prepare_temp_hum_params(temp_celsius: f32, humidity_percent: f32) -> [u8; 6] 
     ]
 }
 
+/// Runs the mandatory 10‑second SGP41 conditioning phase.
+/// Blocks until the phase is finished.
+async fn sgp41_conditioning_task(i2c: &mut I2cCompat<'static>, duration_secs: u8) {
+    info!(
+        "Starting SGP41 conditioning phase ({} seconds)…",
+        duration_secs
+    );
+
+    for i in 1..=duration_secs {
+        info!("  Conditioning {}/{}", i, duration_secs);
+
+        // 25 °C / 50 % RH dummy compensation values
+        let params = prepare_temp_hum_params(25.0, 50.0);
+        let mut cmd = [0u8; 8];
+        cmd[0..2].copy_from_slice(&CMD_EXECUTE_CONDITIONING);
+        cmd[2..8].copy_from_slice(&params);
+
+        if i2c.write(SGP41_ADDR, &cmd).is_ok() {
+            Timer::after(Duration::from_millis(50)).await;
+
+            // Read VOC raw value (3‑byte reply: 2 data + CRC)
+            let mut buf = [0u8; 3];
+            match i2c.read(SGP41_ADDR, &mut buf) {
+                Ok(()) => {
+                    let voc_raw = u16::from_be_bytes([buf[0], buf[1]]);
+                    info!("    VOC raw: {}", voc_raw);
+                }
+                Err(_) => warn!("    Failed to read conditioning result"),
+            }
+        } else {
+            warn!("    Conditioning command failed");
+        }
+
+        Timer::after(Duration::from_secs(1)).await;
+    }
+
+    info!("Conditioning complete!");
+}
+
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_hal_embassy::main]
-async fn main(spawner: Spawner) {
+async fn main(_spawner: Spawner) {
     rtt_target::rtt_init_defmt!();
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -175,45 +214,12 @@ async fn main(spawner: Spawner) {
     let transport = BleConnector::new(&wifi_init, peripherals.BT);
     let _ble_controller = ExternalController::<_, 20>::new(transport);
 
-    // TODO: Spawn some tasks
-    let _ = spawner;
-
     info!("Starting SGP41 sensor reading loop...");
 
-    // Conditioning phase - important for accurate readings
-    let conditioning_duration = 10;
-    info!(
-        "Starting SGP41 conditioning phase ({} seconds)...",
-        conditioning_duration
-    );
+    // Run the conditioning phase before entering the main measurement loop.
+    sgp41_conditioning_task(&mut i2c, 10).await;
 
-    for i in 1..=conditioning_duration {
-        info!("Conditioning... ({}/{})", i, conditioning_duration);
-
-        // Prepare conditioning command with temperature and humidity
-        let params = prepare_temp_hum_params(25.0, 50.0); // 25°C, 50% RH
-        let mut cmd_with_params = [0u8; 8];
-        cmd_with_params[0] = CMD_EXECUTE_CONDITIONING[0];
-        cmd_with_params[1] = CMD_EXECUTE_CONDITIONING[1];
-        cmd_with_params[2..8].copy_from_slice(&params);
-
-        if i2c.write(SGP41_ADDR, &cmd_with_params).is_ok() {
-            embassy_time::Timer::after(Duration::from_millis(50)).await;
-            let mut buffer = [0u8; 3];
-            if i2c.read(SGP41_ADDR, &mut buffer).is_ok() {
-                let voc_raw = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
-                info!("Conditioning OK - VOC raw: {}", voc_raw);
-            } else {
-                warn!("Failed to read conditioning result");
-            }
-        } else {
-            warn!("Conditioning command failed");
-        }
-
-        Timer::after(Duration::from_secs(1)).await;
-    }
-
-    info!("Conditioning complete! Starting normal measurements...");
+    info!("Starting normal measurements…");
 
     // Main measurement loop
     loop {
@@ -233,51 +239,45 @@ async fn main(spawner: Spawner) {
 
         embassy_time::Timer::after(Duration::from_millis(50)).await;
         let mut buffer = [0u8; 6]; // 2 bytes VOC + 1 CRC + 2 bytes NOx + 1 CRC
-        if i2c.read(SGP41_ADDR, &mut buffer).is_ok() {
-            let voc_raw = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
-            let nox_raw = ((buffer[3] as u16) << 8) | (buffer[4] as u16);
+        if i2c.read(SGP41_ADDR, &mut buffer).is_err() {
+            error!("Failed to read SGP41 measurement data");
+            error!("Check sensor connection and power supply");
+            Timer::after(Duration::from_secs(1)).await;
+            continue; // Retry after 1 second
+        }
+        let voc_raw = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
+        let nox_raw = ((buffer[3] as u16) << 8) | (buffer[4] as u16);
 
-            info!("SGP41 Raw Measurements:");
-            info!("  VOC Raw: {} ticks", voc_raw);
-            info!("  NOx Raw: {} ticks", nox_raw);
+        info!("SGP41 Raw Measurements:");
+        info!("  VOC Raw: {} ticks", voc_raw);
+        info!("  NOx Raw: {} ticks", nox_raw);
 
-            // Convert to approximate concentrations
-            // Note: For production use, implement the Sensirion Gas Index Algorithm
-            // These are simplified approximations
-            let voc_index = if voc_raw > 25000 {
-                (voc_raw as i32 - 25000) / 100 // Convert to tenths for display
-            } else {
-                0
-            };
-
-            let nox_index = if nox_raw > 25000 {
-                (nox_raw as i32 - 25000) / 100 // Convert to tenths for display
-            } else {
-                0
-            };
-
-            info!(
-                "  VOC Index (approx): {}.{}",
-                voc_index / 10,
-                voc_index % 10
-            );
-            info!(
-                "  NOx Index (approx): {}.{}",
-                nox_index / 10,
-                nox_index % 10
-            );
-
-            // Quality indicators
-            if voc_index > 100 {
-                // voc_index is in tenths, so 100 = 10.0
-                warn!("High VOC levels detected!");
-            }
-            if nox_index > 100 {
-                // nox_index is in tenths, so 100 = 10.0
-                warn!("High NOx levels detected!");
-            }
+        // Convert to approximate concentrations
+        // Note: For production use, implement the Sensirion Gas Index Algorithm
+        // These are simplified approximations
+        let voc_index = if voc_raw > 25000 {
+            (voc_raw as i32 - 25000) / 100 // Convert to tenths for display
         } else {
-            error!("Failed to read SGP41 measurements");
+            0
+        };
+
+        let nox_index = if nox_raw > 25000 {
+            (nox_raw as i32 - 25000) / 100 // Convert to tenths for display
+        } else {
+            0
+        };
+
+        info!("  VOC Index (approx): {}.{}", voc_index / 10, voc_index % 10);
+        info!("  NOx Index (approx): {}.{}",nox_index / 10,nox_index % 10);
+
+        // Quality indicators
+        if voc_index > 100 {
+            // voc_index is in tenths, so 100 = 10.0
+            warn!("High VOC levels detected!");
+        }
+        if nox_index > 100 {
+            // nox_index is in tenths, so 100 = 10.0
+            warn!("High NOx levels detected!");
         }
 
         // Wait 1 second between measurements
