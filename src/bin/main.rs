@@ -214,6 +214,12 @@ async fn main(_spawner: Spawner) {
     let transport = BleConnector::new(&wifi_init, peripherals.BT);
     let _ble_controller = ExternalController::<_, 20>::new(transport);
 
+    // --- VOC/NOx index calibration constants ---
+    const VOC_OFFSET: f32 = 25000.0;
+    const VOC_SCALE: f32 = 50.0;   // tune so that raw≈30449 → index≈104
+    const NOX_OFFSET: f32 = 25000.0;
+    const NOX_SCALE: f32 = 50.0;
+
     info!("Starting SGP41 sensor reading loop...");
 
     // Run the conditioning phase before entering the main measurement loop.
@@ -252,31 +258,18 @@ async fn main(_spawner: Spawner) {
         info!("  VOC Raw: {} ticks", voc_raw);
         info!("  NOx Raw: {} ticks", nox_raw);
 
-        // Convert to approximate concentrations
-        // Note: For production use, implement the Sensirion Gas Index Algorithm
-        // These are simplified approximations
-        let voc_index = if voc_raw > 25000 {
-            (voc_raw as i32 - 25000) / 100 // Convert to tenths for display
-        } else {
-            0
-        };
+        // Compute floating‑point VOC/NOx indices
+        let voc_index = ((voc_raw as f32 - VOC_OFFSET) / VOC_SCALE).max(0.0);
+        let nox_index = ((nox_raw as f32 - NOX_OFFSET) / NOX_SCALE).max(0.0);
 
-        let nox_index = if nox_raw > 25000 {
-            (nox_raw as i32 - 25000) / 100 // Convert to tenths for display
-        } else {
-            0
-        };
-
-        info!("  VOC Index (approx): {}.{}", voc_index / 10, voc_index % 10);
-        info!("  NOx Index (approx): {}.{}",nox_index / 10,nox_index % 10);
+        info!("  VOC Index (approx): {}", voc_index as u32);
+        info!("  NOx Index (approx): {}", nox_index as u32);
 
         // Quality indicators
-        if voc_index > 100 {
-            // voc_index is in tenths, so 100 = 10.0
+        if voc_index > 180.0 {
             warn!("High VOC levels detected!");
         }
-        if nox_index > 100 {
-            // nox_index is in tenths, so 100 = 10.0
+        if nox_index > 30.0 {
             warn!("High NOx levels detected!");
         }
 

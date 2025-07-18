@@ -2,6 +2,24 @@
 
 A Rust project for ESP32-C6 microcontroller that interfaces with SGP41 VOC (Volatile Organic Compounds) and NOx (Nitrogen Oxides) sensors using Embassy async framework and Bluetooth Low Energy connectivity.
 
+## Result
+
+```bash
+SGP41 Raw Measurements:
+INFO    VOC Raw: 30079 ticks
+INFO    NOx Raw: 17753 ticks
+INFO    VOC Index (approx): 5.0
+INFO    NOx Index (approx): 0.0
+```
+Office is not that great, but the sensor is working and the code is ready for further development.
+
+https://sensirion.com/media/documents/02232963/6294E043/Info_Note_VOC_Index.pdf
+```bash
+while a VOC Index below 100 means
+that there are fewer VOCs compared to the average (e.g., induced by
+fresh air from an open window, using an air purifier, etc.).
+```
+
 ## Features
 
 - **Embassy Async Framework**: Modern async/await support for embedded systems
@@ -153,3 +171,57 @@ The main application logic is in `src/bin/main.rs`. The project is set up with:
 To add SGP41 sensor functionality, modify the main loop to include sensor reading and data processing.
 
 // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0-beta.1/examples/src/bin
+
+```bash
+screen /dev/cu.usbserial-110 115200
+SRAW_VOC 30309  SRAW_NOx 15949
+VOC Index 106   NOx Index 1
+SRAW_VOC 30307  SRAW_NOx 15952
+VOC Index 106   NOx Index 1
+SRAW_VOC 30307  SRAW_NOx 15948
+VOC Index 106   NOx Index 1
+SRAW_VOC 30299  SRAW_NOx 15952
+VOC Index 106   NOx Index 1
+SRAW_VOC 30298  SRAW_NOx 15950
+VOC Index 106   NOx Index 1
+SRAW_VOC 30304  SRAW_NOx 15950
+VOC Index 106   NOx Index 1
+SRAW_VOC 30298  SRAW_NOx 15946
+VOC Index 106   NOx Index 1
+SRAW_VOC 30301  SRAW_NOx 15947
+VOC Index 106   NOx Index 1
+SRAW_VOC 30297  SRAW_NOx 15943
+VOC Index 106   NOx Index 1
+SRAW_VOC 30310  SRAW_NOx 15945
+VOC Index 106   NOx Index 1
+SRAW_VOC 30307  SRAW_NOx 15947
+VOC Index 106   NOx Index 1
+SRAW_VOC 30302  SRAW_NOx 15942
+VOC Index 105   NOx Index 1
+SRAW_VOC 30297  SRAW_NOx 15941
+VOC Index 105   NOx Index 1
+SRAW_VOC 30297  SRAW_NOx 15937
+VOC Index 105   NOx Index 1
+SRAW_VOC 30298  SRAW_NOx 15937
+VOC Index 105   NOx Index 1
+SRAW_VOC 30307  SRAW_NOx 15933
+VOC Index 105   NOx Index 1
+SRAW_VOC 30303  SRAW_NOx 15937
+VOC Index 105   NOx Index 1
+SRAW_VOC 30308  SRAW_NOx 15931
+VOC Index 105   NOx Index 1
+SRAW_VOC 30302  SRAW_NOx 15930
+VOC Index 105   NOx Index 1
+SRAW_VOC 30313  SRAW_NOx 15935
+VOC Index 104   NOx Index 1
+SRAW_VOC 30302  SRAW_NOx 15927
+VOC Index 104   NOx Index 1
+SRAW_VOC 30307  SRAW_NOx 15927
+VOC Index 104   NOx Index 1
+SRAW_VOC 30305  SRAW_NOx 15929
+VOC Index 104   NOx Index 1
+SRAW_VOC 30302  SRAW_NOx 15927
+VOC Index 104   NOx Index 1
+SRAW_VOC 30309  SRAW_NOx 15927
+VOC Index 104   NOx Index 1
+```
