@@ -23,7 +23,8 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_executor::Spawner;
 use esp_sgp41_VOC_NOx::led::Led;
-use esp_hal::rmt::Rmt;
+use esp_hal::rmt::{Channel, Rmt};
+use esp_hal::Blocking;
 
 extern crate alloc;
 
@@ -110,10 +111,22 @@ async fn main(_spawner: Spawner) {
     let rmt = Rmt::new(peripherals.RMT, Rate::from_mhz(80)).expect("Failed to initialize RMT");
 
     #[cfg(feature = "esp32c6")]
-    let mut led = Led::new_ws2812(
+    let mut led_hw = Led::new_ws2812(
         rmt.channel0,
         peripherals.GPIO8,  // WS2812 LED pin for ESP32-C6
     );
+    let _ = led_hw.set_color_rgb(30, 0, 0);
+
+
+    static LED_CELL: StaticCell<
+        Mutex<NoopRawMutex, Led<Channel<Blocking, 0>>>
+    > = StaticCell::new();
+    let led: &'static _ = LED_CELL.init(Mutex::new(led_hw));
+
+    // let mut guard = led.lock().await;
+    // let _ = guard.set_color_rgb(30, 0, 30);
+    // let _ = led.set_color_rgb(30, 0, 30);
+
 
     // Initialize WiFi/BLE
     let rng = esp_hal::rng::Rng::new(peripherals.RNG);
@@ -128,10 +141,9 @@ async fn main(_spawner: Spawner) {
     let i2c_bus: &'static Mutex<NoopRawMutex, I2cCompat<'static>> =
         I2C_BUS_CELL.init(Mutex::new(i2c));
 
-    let _ = led.set_color_rgb(30, 0, 0);
 
     // Run the burn‑in first; it will spawn the measurement task when done.
-    _spawner.spawn(sgp41_conditioning_task(i2c_bus, 10)).unwrap();
+    _spawner.spawn(sgp41_conditioning_task(i2c_bus, 10, led)).unwrap();
     _spawner.spawn(sgp41_measurement_task(i2c_bus)).unwrap();
 
     // Nothing else to do here; park the main task.

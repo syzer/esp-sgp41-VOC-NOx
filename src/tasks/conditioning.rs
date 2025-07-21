@@ -4,7 +4,8 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use defmt::{info, warn};
 use embedded_hal_02::blocking::i2c::{Read, Write};
-use esp_hal::rmt::TxChannel;
+use esp_hal::rmt::{Channel};
+use esp_hal::Blocking;
 use crate::{prepare_temp_hum_params};
 use crate::hal::{I2cCompat};
 use crate::led::Led;
@@ -23,8 +24,14 @@ pub const CMD_MEASURE_RAW_SIGNALS: [u8; 2] = [0x26, 0x19];
 pub async fn sgp41_conditioning_task(
     bus: &'static Mutex<NoopRawMutex, I2cCompat<'static>>,
     duration_secs: u8,
+    led: &'static Mutex<NoopRawMutex, Led<Channel<Blocking, 0>>>,
 ) {
     info!("Starting SGP41 conditioning phase ({} s)…", duration_secs);
+
+    {
+        let mut l = led.lock().await;
+        l.set_color_rgb(30, 0, 0).ok();
+    }
 
     for i in 1..=duration_secs {
         info!("  Conditioning {}/{}", i, duration_secs);
@@ -34,12 +41,16 @@ pub async fn sgp41_conditioning_task(
         cmd[0..2].copy_from_slice(&CMD_EXECUTE_CONDITIONING);
         cmd[2..8].copy_from_slice(&params);
 
-        // ── write ─────────────────────────────────────────────────────────────
         {
             let mut guard = bus.lock().await;
             if guard.write(SGP41_ADDR, &cmd).is_err() {
                 warn!("    Conditioning command failed");
             }
+        }
+
+        {
+            let mut l = led.lock().await;
+            l.set_color_rgb(30, 0, 30).ok();
         }
 
         // wait 50 ms before reading
@@ -58,6 +69,11 @@ pub async fn sgp41_conditioning_task(
         // wait 1 s between conditioning cycles
         Timer::after(Duration::from_secs(1)).await;
     }
+
+    {
+        let mut l = led.lock().await;
+        l.set_color_rgb(0, 30, 0).ok();
+    } //  guard drops immediately after this blocks
 
     // Signal completion.
     CONDITION_DONE.store(true, Ordering::Release);
