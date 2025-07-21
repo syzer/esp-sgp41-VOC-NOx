@@ -1,4 +1,4 @@
-#![no_std]
+// #![no_std]
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Simple shim that lets an `embedded-hal 1.0` I²C implementation satisfy the

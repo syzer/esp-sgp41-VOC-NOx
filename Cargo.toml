@@ -3,6 +3,11 @@ edition = "2021"
 name    = "esp-sgp41-VOC-NOx"
 version = "0.1.0"
 
+[features]
+default = ["esp32c6"]
+esp32c6 = ["esp-hal/esp32c6", "esp-hal-embassy/esp32c6", "esp-wifi/esp32c6", "esp-hal-smartled", "smart-leds", "fugit"]
+esp32s3 = []
+
 [[bin]]
 name = "esp-sgp41-VOC-NOx"
 path = "./src/bin/main.rs"
@@ -16,6 +21,10 @@ name    = "hello_test"
 test = false
 
 [dependencies]
+esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community.git", package = "esp-hal-smartled", branch = "main", features = ["esp32c6"], optional = true }
+smart-leds = { version = "0.4.0", optional = true }
+fugit = { version = "0.3", optional = true }
+
 defmt = "1.0.1"
 esp-bootloader-esp-idf = "0.1.0"
 esp-hal = { version = "=1.0.0-beta.1", features = [
@@ -42,6 +51,7 @@ esp-wifi = { version = "0.14.1", features = [
   "esp-alloc",
   "esp32c6",
 ] }
+embassy-sync = { version = "0.7.0", default-features = false }
 panic-rtt-target = { version = "0.2.0", features = ["defmt"] }
 rtt-target = { version = "0.6.1", features = ["defmt"] }
 static_cell = { version = "2.1.0", features = ["nightly"] }
