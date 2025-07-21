@@ -4,9 +4,10 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use defmt::{info, warn};
 use embedded_hal_02::blocking::i2c::{Read, Write};
+use esp_hal::rmt::TxChannel;
 use crate::{prepare_temp_hum_params};
 use crate::hal::{I2cCompat};
-
+use crate::led::Led;
 
 pub static CONDITION_DONE: AtomicBool = AtomicBool::new(false);
 pub const SGP41_ADDR: u8 = 0x59;
@@ -27,7 +28,6 @@ pub async fn sgp41_conditioning_task(
 
     for i in 1..=duration_secs {
         info!("  Conditioning {}/{}", i, duration_secs);
-
         // 25 °C / 50 %RH dummy compensation values
         let params = prepare_temp_hum_params(25.0, 50.0);
         let mut cmd = [0u8; 8];

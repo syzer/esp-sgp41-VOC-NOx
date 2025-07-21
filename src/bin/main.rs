@@ -22,6 +22,8 @@ use static_cell::StaticCell;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_executor::Spawner;
+use esp_sgp41_VOC_NOx::led::Led;
+use esp_hal::rmt::Rmt;
 
 extern crate alloc;
 
@@ -99,6 +101,20 @@ async fn main(_spawner: Spawner) {
         error!("Check connections: SDA=GPIO4, SCL=GPIO5, VCC=3.3V, GND=GND");
     }
 
+    // ── LED setup for XIAO ESP32-S3 (built-in LED on GPIO21) ──────────
+    // Create unified LED API for different chips
+    #[cfg(feature = "esp32s3")]
+    let mut led = Led::new_gpio(Output::new(peripherals.GPIO21, Level::Low, Default::default()));
+
+    #[cfg(feature = "esp32c6")]
+    let rmt = Rmt::new(peripherals.RMT, Rate::from_mhz(80)).expect("Failed to initialize RMT");
+
+    #[cfg(feature = "esp32c6")]
+    let mut led = Led::new_ws2812(
+        rmt.channel0,
+        peripherals.GPIO8,  // WS2812 LED pin for ESP32-C6
+    );
+
     // Initialize WiFi/BLE
     let rng = esp_hal::rng::Rng::new(peripherals.RNG);
     let timer1 = TimerGroup::new(peripherals.TIMG0);
@@ -111,6 +127,8 @@ async fn main(_spawner: Spawner) {
     // Initialize the shared I2C bus mutex
     let i2c_bus: &'static Mutex<NoopRawMutex, I2cCompat<'static>> =
         I2C_BUS_CELL.init(Mutex::new(i2c));
+
+    let _ = led.set_color_rgb(30, 0, 0);
 
     // Run the burn‑in first; it will spawn the measurement task when done.
     _spawner.spawn(sgp41_conditioning_task(i2c_bus, 10)).unwrap();

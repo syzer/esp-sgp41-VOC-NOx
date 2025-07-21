@@ -2,6 +2,7 @@
 
 pub mod hal;
 pub mod tasks;
+pub mod led;
 
 // CRC calculation for SGP41
 pub fn calculate_crc(data: &[u8]) -> u8 {
