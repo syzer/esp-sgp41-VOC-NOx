@@ -28,10 +28,7 @@ pub async fn sgp41_conditioning_task(
 ) {
     info!("Starting SGP41 conditioning phase ({} s)…", duration_secs);
 
-    {
-        let mut l = led.lock().await;
-        l.set_color_rgb(30, 0, 0).ok();
-    }
+    led.lock().await.set_color_rgb(30, 0, 0).ok();
 
     for i in 1..=duration_secs {
         info!("  Conditioning {}/{}", i, duration_secs);
@@ -41,39 +38,28 @@ pub async fn sgp41_conditioning_task(
         cmd[0..2].copy_from_slice(&CMD_EXECUTE_CONDITIONING);
         cmd[2..8].copy_from_slice(&params);
 
-        {
-            let mut guard = bus.lock().await;
-            if guard.write(SGP41_ADDR, &cmd).is_err() {
-                warn!("    Conditioning command failed");
-            }
+        if bus.lock().await.write(SGP41_ADDR, &cmd).is_err() {
+            warn!("    Failed to send measure command");
         }
 
-        {
-            let mut l = led.lock().await;
-            l.set_color_rgb(30, 0, 30).ok();
-        }
+        led.lock().await.set_color_rgb(30, 0, 30).ok();
 
         // wait 50 ms before reading
         Timer::after(Duration::from_millis(50)).await;
 
         // ── read ──────────────────────────────────────────────────────────────
         let mut buf = [0u8; 3];
-        {
-            let mut guard = bus.lock().await;
-            if guard.read(SGP41_ADDR, &mut buf).is_ok() {
-                let voc_raw = u16::from_be_bytes([buf[0], buf[1]]);
-                info!("    VOC raw: {}", voc_raw);
-            }
+        if bus.lock().await.read(SGP41_ADDR, &mut buf).is_ok() {
+            let voc_raw = u16::from_be_bytes([buf[0], buf[1]]);
+            info!("    VOC raw: {}", voc_raw);
         }
 
         // wait 1 s between conditioning cycles
         Timer::after(Duration::from_secs(1)).await;
     }
 
-    {
-        let mut l = led.lock().await;
-        l.set_color_rgb(0, 30, 0).ok();
-    } //  guard drops immediately after this blocks
+    //  guard drops immediately after this blocks
+    led.lock().await.set_color_rgb(0, 30, 0).ok();
 
     // Signal completion.
     CONDITION_DONE.store(true, Ordering::Release);
