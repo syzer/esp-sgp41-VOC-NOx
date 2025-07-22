@@ -2,15 +2,15 @@ use defmt::debug;
 use embassy_time::{Duration, Timer};
 
 #[cfg(feature = "esp32c6")]
-use esp_hal_smartled::{smart_led_buffer, SmartLedsAdapter};
-#[cfg(feature = "esp32c6")]
-use smart_leds::{RGB8, SmartLedsWrite};
-#[cfg(feature = "esp32c6")]
-use smart_leds::hsv::{Hsv, hsv2rgb};
+use esp_hal::gpio::OutputPin;
 #[cfg(feature = "esp32c6")]
 pub(crate) use esp_hal::rmt::{TxChannel, TxChannelCreator};
 #[cfg(feature = "esp32c6")]
-use esp_hal::gpio::OutputPin;
+use esp_hal_smartled::{smart_led_buffer, SmartLedsAdapter};
+#[cfg(feature = "esp32c6")]
+use smart_leds::hsv::{hsv2rgb, Hsv};
+#[cfg(feature = "esp32c6")]
+use smart_leds::{SmartLedsWrite, RGB8};
 
 #[cfg(feature = "esp32s3")]
 use esp_hal::gpio::Output;

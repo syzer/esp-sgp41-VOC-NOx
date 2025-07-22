@@ -1,11 +1,11 @@
+use crate::led::LedCommand;
 use core::sync::atomic::Ordering;
+use defmt::{error, info, warn};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::channel::Sender;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
-use defmt::{error, info, warn};
 use embedded_hal_02::blocking::i2c::{Read, Write};
-use embassy_sync::channel::Sender;
-use crate::led::LedCommand;
 
 use crate::hal::I2cCompat;
 use crate::prepare_temp_hum_params;

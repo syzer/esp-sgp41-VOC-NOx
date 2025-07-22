@@ -1,14 +1,13 @@
+use crate::hal::I2cCompat;
+use crate::led::LedCommand;
+use crate::prepare_temp_hum_params;
 use core::sync::atomic::{AtomicBool, Ordering};
+use defmt::{info, warn};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::channel::Sender;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
-use defmt::{info, warn};
 use embedded_hal_02::blocking::i2c::{Read, Write};
-// use esp_hal::rmt::{Channel};
-use crate::{prepare_temp_hum_params};
-use crate::hal::{I2cCompat};
-use crate::led::{ LedCommand };
-use embassy_sync::channel::Sender;
 
 pub static CONDITION_DONE: AtomicBool = AtomicBool::new(false);
 pub const SGP41_ADDR: u8 = 0x59;

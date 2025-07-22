@@ -1,11 +1,11 @@
 use defmt::info;
-use esp_hal::rmt::{Channel as RmtChannel};
-use esp_hal::Blocking;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_sync::channel::Receiver;
-use embassy_time::Timer;
+use embassy_sync::mutex::Mutex;
 use embassy_time::Duration;
+use embassy_time::Timer;
+use esp_hal::rmt::Channel as RmtChannel;
+use esp_hal::Blocking;
 
 use crate::led::Led;
 use crate::led::LedCommand;
