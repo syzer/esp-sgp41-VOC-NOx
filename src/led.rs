@@ -22,8 +22,8 @@ pub struct Led {
 }
 
 #[cfg(feature = "esp32c6")]
-/// Unified LED API for ESP32-C6 (WS2812 LED)  
-pub struct Led<TX> 
+/// Unified LED API for ESP32-C6 (WS2812 LED)
+pub struct Led<TX>
 where
     TX: TxChannel,
 {
@@ -42,7 +42,7 @@ impl Led {
 }
 
 #[cfg(feature = "esp32c6")]
-impl<TX> Led<TX> 
+impl<TX> Led<TX>
 where
     TX: TxChannel,
 {
@@ -148,4 +148,9 @@ where
     }
 }
 
-// pub type LedType = Led<TxChannel>;
+// Messages for the LED task
+#[derive(Copy, Clone)]
+pub enum LedCommand {
+    Solid(u8, u8, u8),
+    Blink(u8, u8, u8, u16),  // r, g, b, period_ms
+}
