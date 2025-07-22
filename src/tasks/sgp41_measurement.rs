@@ -68,13 +68,24 @@ pub async fn sgp41_measurement_task(
         info!("  VOC Index (approx): {}", voc_index as u32);
         info!("  NOx Index (approx): {}", nox_index as u32);
 
-        if voc_index > 180.0 {
+        // Determine base color from VOC level
+        let mut color = if voc_index > 180.0 {
             warn!("High VOC levels detected!");
-        }
+            [30, 0, 0]
+        } else if voc_index > 120.0 {
+            [30, 30, 0]
+        } else {
+            [0, 30, 0]
+        };
+
+        // Override if NOx is high
         if nox_index > 30.0 {
             warn!("High NOx levels detected!");
+            color = [0, 30, 0];
         }
 
-        Timer::after(Duration::from_secs(1)).await;
+        // Send blink command
+        _led_sender.send(LedCommand::Blink(color[0], color[1], color[2], None)).await;
+        Timer::after(Duration::from_secs(2)).await;
     }
 }

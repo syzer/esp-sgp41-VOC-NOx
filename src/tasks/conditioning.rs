@@ -7,7 +7,7 @@ use embedded_hal_02::blocking::i2c::{Read, Write};
 // use esp_hal::rmt::{Channel};
 use crate::{prepare_temp_hum_params};
 use crate::hal::{I2cCompat};
-use crate::led::{/*Led,*/LedCommand };
+use crate::led::{ LedCommand };
 use embassy_sync::channel::Sender;
 
 pub static CONDITION_DONE: AtomicBool = AtomicBool::new(false);

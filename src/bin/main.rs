@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 #![no_std]
 #![no_main]
 #![deny(
@@ -11,6 +12,7 @@ use defmt::{error, info};
 use embassy_time::{Duration, Timer};
 use embassy_sync::channel::{Channel as SyncChannel, Sender, Receiver};
 
+use esp_hal::Blocking;
 use embedded_hal_02::blocking::i2c::{Read, Write};
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::Io;
@@ -24,18 +26,15 @@ use static_cell::StaticCell;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_executor::Spawner;
-use esp_sgp41_VOC_NOx::led::{Led, LedCommand};
-use esp_hal::Blocking;
+use esp_sgp41_voc_nox::led::{Led, LedCommand};
+use esp_sgp41_voc_nox::hal::{HalI2c, I2cCompat};
+use esp_sgp41_voc_nox::tasks::conditioning::{SGP41_ADDR, sgp41_conditioning_task};
+use esp_sgp41_voc_nox::tasks::sgp41_measurement::sgp41_measurement_task;
+use esp_sgp41_voc_nox::tasks::led::led_task;
 
 use esp_hal::rmt::{Channel as RmtChannel, Rmt};
 
 extern crate alloc;
-
-use esp_sgp41_VOC_NOx::hal::{HalI2c, I2cCompat};
-use esp_sgp41_VOC_NOx::tasks::conditioning::{SGP41_ADDR, sgp41_conditioning_task};
-use esp_sgp41_VOC_NOx::tasks::sgp41_measurement::sgp41_measurement_task;
-use esp_sgp41_VOC_NOx::tasks::led::led_task;
-
 
 // ── shared state between the two tasks ───────────────────────────────────────
 static I2C_BUS_CELL: StaticCell<Mutex<NoopRawMutex, I2cCompat<'static>>> = StaticCell::new();
@@ -122,8 +121,7 @@ async fn main(_spawner: Spawner) {
         rmt.channel0,
         peripherals.GPIO8,  // WS2812 LED pin for ESP32-C6
     );
-    let _ = led_hw.set_color_rgb(30, 0, 0);
-
+    led_hw.set_color_rgb(30, 0, 0);
 
     static LED_CELL: StaticCell<
         Mutex<NoopRawMutex, Led<RmtChannel<Blocking, 0>>>
@@ -133,7 +131,7 @@ async fn main(_spawner: Spawner) {
     // Initialize LED command queue and split sender/receiver
     let led_queue = LED_QUEUE.init(SyncChannel::new());
     let led_sender: Sender<'static, NoopRawMutex, LedCommand, 4> = led_queue.sender();
-    let led_sender2 = led_sender.clone();
+    let led_sender2 = led_sender;
     let led_receiver: Receiver<'static, NoopRawMutex, LedCommand, 4> = led_queue.receiver();
 
     // Initialize WiFi/BLE

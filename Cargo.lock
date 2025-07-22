@@ -737,36 +737,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "esp-sgp41-VOC-NOx"
-version = "0.1.0"
-dependencies = [
- "bt-hci 0.2.1",
- "critical-section",
- "defmt 1.0.1",
- "embassy-executor",
- "embassy-sync 0.7.0",
- "embassy-time",
- "embedded-hal 0.2.7",
- "embedded-hal-async",
- "embedded-io",
- "embedded-io-async",
- "embedded-test",
- "esp-alloc",
- "esp-bootloader-esp-idf",
- "esp-hal",
- "esp-hal-embassy",
- "esp-hal-smartled",
- "esp-wifi",
- "fugit",
- "log",
- "panic-rtt-target",
- "rtt-target",
- "smart-leds",
- "static_cell",
- "trouble-host",
-]
-
-[[package]]
 name = "esp-wifi"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -880,6 +850,36 @@ dependencies = [
  "critical-section",
  "defmt 1.0.1",
  "vcell",
+]
+
+[[package]]
+name = "esp_sgp41_voc_nox"
+version = "0.1.0"
+dependencies = [
+ "bt-hci 0.2.1",
+ "critical-section",
+ "defmt 1.0.1",
+ "embassy-executor",
+ "embassy-sync 0.7.0",
+ "embassy-time",
+ "embedded-hal 0.2.7",
+ "embedded-hal-async",
+ "embedded-io",
+ "embedded-io-async",
+ "embedded-test",
+ "esp-alloc",
+ "esp-bootloader-esp-idf",
+ "esp-hal",
+ "esp-hal-embassy",
+ "esp-hal-smartled",
+ "esp-wifi",
+ "fugit",
+ "log",
+ "panic-rtt-target",
+ "rtt-target",
+ "smart-leds",
+ "static_cell",
+ "trouble-host",
 ]
 
 [[package]]

@@ -4,7 +4,8 @@ use esp_hal::Blocking;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::channel::Receiver;
-
+use embassy_time::Timer;
+use embassy_time::Duration;
 
 use crate::led::Led;
 use crate::led::LedCommand;
@@ -20,11 +21,18 @@ pub async fn led_task(
         match command {
             LedCommand::Solid(r, g, b) => {
                 info!("Setting LED to solid color: R={}, G={}, B={}", r, g, b);
-                led.lock().await.set_color_rgb(r, g, b).ok();
+                led.lock().await.set_color_rgb(r, g, b);
             }
-            LedCommand::Blink(r, g, b, period_ms) => {
-                info!("Setting LED to blink: R={}, G={}, B={}, Period={}ms", r, g, b, period_ms);
-                // led.lock().await.blink(r, g, b, period_ms).ok();
+            LedCommand::Blink(r, g, b, period_ms_opt) => {
+                let period_ms = period_ms_opt.unwrap_or(300);
+                info!(
+                    "Blink LED: R={}, G={}, B={}, Period={}",
+                    r, g, b, period_ms
+                );
+
+                led.lock().await.set_color_rgb(0, 0, 0);
+                Timer::after(Duration::from_millis(period_ms as u64)).await;
+                led.lock().await.set_color_rgb(r, g, b);
             }
         }
     }
