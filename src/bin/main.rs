@@ -126,12 +126,15 @@ async fn main(_spawner: Spawner) {
     > = StaticCell::new();
     let led: &'static _ = LED_CELL.init(Mutex::new(led_hw));
 
+<<<<<<< Updated upstream
     // Initialize LED command queue and split sender/receiver
     let led_queue = LED_QUEUE.init(SyncChannel::new());
     let led_sender: Sender<'static, NoopRawMutex, LedCommand, 4> = led_queue.sender();
     let led_sender2 = led_sender;
     let led_receiver: Receiver<'static, NoopRawMutex, LedCommand, 4> = led_queue.receiver();
 
+=======
+>>>>>>> Stashed changes
     // Initialize WiFi/BLE
     let rng = esp_hal::rng::Rng::new(peripherals.RNG);
     let timer1 = TimerGroup::new(peripherals.TIMG0);
