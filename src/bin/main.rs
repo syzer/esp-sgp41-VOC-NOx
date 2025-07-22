@@ -6,32 +6,33 @@
     holding buffers for the duration of a data transfer."
 )]
 
+extern crate alloc;
 use bt_hci::controller::ExternalController;
 use defmt::{error, info};
+use embassy_sync::channel::{Channel as SyncChannel, Receiver, Sender};
 use embassy_time::{Duration, Timer};
+
+use embassy_executor::Spawner;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::mutex::Mutex;
 use embedded_hal_02::blocking::i2c::{Read, Write};
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::Io;
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
+use esp_hal::time::Rate;
 use esp_hal::timer::systimer::SystemTimer;
 use esp_hal::timer::timg::TimerGroup;
-use esp_hal::time::Rate;
+use esp_hal::Blocking;
+use esp_sgp41_voc_nox::hal::{HalI2c, I2cCompat};
+use esp_sgp41_voc_nox::led::{Led, LedCommand};
+use esp_sgp41_voc_nox::tasks::conditioning::{sgp41_conditioning_task, SGP41_ADDR};
+use esp_sgp41_voc_nox::tasks::led::led_task;
+use esp_sgp41_voc_nox::tasks::sgp41_measurement::sgp41_measurement_task;
 use esp_wifi::ble::controller::BleConnector;
 use panic_rtt_target as _;
 use static_cell::StaticCell;
-use embassy_sync::mutex::Mutex;
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_executor::Spawner;
-use esp_sgp41_VOC_NOx::led::Led;
-use esp_hal::rmt::{Channel, Rmt};
-use esp_hal::Blocking;
 
-extern crate alloc;
-
-use esp_sgp41_VOC_NOx::hal::{HalI2c, I2cCompat};
-use esp_sgp41_VOC_NOx::tasks::conditioning::{SGP41_ADDR, sgp41_conditioning_task};
-use esp_sgp41_VOC_NOx::tasks::sgp41_measurement::sgp41_measurement_task;
-
+use esp_hal::rmt::{Channel as RmtChannel, Rmt};
 
 // ── shared state between the two tasks ───────────────────────────────────────
 static I2C_BUS_CELL: StaticCell<Mutex<NoopRawMutex, I2cCompat<'static>>> = StaticCell::new();
@@ -39,6 +40,9 @@ static I2C_BUS_CELL: StaticCell<Mutex<NoopRawMutex, I2cCompat<'static>>> = Stati
 // This creates a default app-descriptor required by the esp-idf bootloader.
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
+
+// A bounded queue for LED commands (4 entries)
+static LED_QUEUE: StaticCell<SyncChannel<NoopRawMutex, LedCommand, 4>> = StaticCell::new();
 
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
@@ -115,18 +119,18 @@ async fn main(_spawner: Spawner) {
         rmt.channel0,
         peripherals.GPIO8,  // WS2812 LED pin for ESP32-C6
     );
-    let _ = led_hw.set_color_rgb(30, 0, 0);
-
+    led_hw.set_color_rgb(30, 0, 0);
 
     static LED_CELL: StaticCell<
-        Mutex<NoopRawMutex, Led<Channel<Blocking, 0>>>
+        Mutex<NoopRawMutex, Led<RmtChannel<Blocking, 0>>>
     > = StaticCell::new();
     let led: &'static _ = LED_CELL.init(Mutex::new(led_hw));
 
-    // let mut guard = led.lock().await;
-    // let _ = guard.set_color_rgb(30, 0, 30);
-    // let _ = led.set_color_rgb(30, 0, 30);
-
+    // Initialize LED command queue and split sender/receiver
+    let led_queue = LED_QUEUE.init(SyncChannel::new());
+    let led_sender: Sender<'static, NoopRawMutex, LedCommand, 4> = led_queue.sender();
+    let led_sender2 = led_sender;
+    let led_receiver: Receiver<'static, NoopRawMutex, LedCommand, 4> = led_queue.receiver();
 
     // Initialize WiFi/BLE
     let rng = esp_hal::rng::Rng::new(peripherals.RNG);
@@ -143,9 +147,10 @@ async fn main(_spawner: Spawner) {
 
 
     // Run the burn‑in first; it will spawn the measurement task when done.
-    _spawner.spawn(sgp41_conditioning_task(i2c_bus, 10, led)).unwrap();
-    _spawner.spawn(sgp41_measurement_task(i2c_bus)).unwrap();
-
+    _spawner.must_spawn(sgp41_conditioning_task(i2c_bus, 10, led_sender));
+    _spawner.must_spawn(sgp41_measurement_task(i2c_bus, led_sender2));
+    _spawner.must_spawn(led_task(led_receiver, led));
+    
     // Nothing else to do here; park the main task.
     loop {
         Timer::after(Duration::from_secs(60)).await;

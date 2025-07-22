@@ -2,15 +2,15 @@ use defmt::debug;
 use embassy_time::{Duration, Timer};
 
 #[cfg(feature = "esp32c6")]
-use esp_hal_smartled::{smart_led_buffer, SmartLedsAdapter};
-#[cfg(feature = "esp32c6")]
-use smart_leds::{RGB8, SmartLedsWrite};
-#[cfg(feature = "esp32c6")]
-use smart_leds::hsv::{Hsv, hsv2rgb};
+use esp_hal::gpio::OutputPin;
 #[cfg(feature = "esp32c6")]
 pub(crate) use esp_hal::rmt::{TxChannel, TxChannelCreator};
 #[cfg(feature = "esp32c6")]
-use esp_hal::gpio::OutputPin;
+use esp_hal_smartled::{smart_led_buffer, SmartLedsAdapter};
+#[cfg(feature = "esp32c6")]
+use smart_leds::hsv::{hsv2rgb, Hsv};
+#[cfg(feature = "esp32c6")]
+use smart_leds::{SmartLedsWrite, RGB8};
 
 #[cfg(feature = "esp32s3")]
 use esp_hal::gpio::Output;
@@ -22,8 +22,8 @@ pub struct Led {
 }
 
 #[cfg(feature = "esp32c6")]
-/// Unified LED API for ESP32-C6 (WS2812 LED)  
-pub struct Led<TX> 
+/// Unified LED API for ESP32-C6 (WS2812 LED)
+pub struct Led<TX>
 where
     TX: TxChannel,
 {
@@ -42,7 +42,7 @@ impl Led {
 }
 
 #[cfg(feature = "esp32c6")]
-impl<TX> Led<TX> 
+impl<TX> Led<TX>
 where
     TX: TxChannel,
 {
@@ -62,16 +62,15 @@ where
 #[cfg(feature = "esp32s3")]
 impl Led {
     /// Set LED color/brightness. For GPIO LED, brightness > 0 = on, 0 = off.
-    pub fn set_color(&mut self, brightness: u8) -> Result<(), ()> {
+    #[allow(clippy::result_unit_err)]
+    pub fn set_color(&mut self, brightness: u8) {
         if let Some(gpio) = &mut self.gpio {
             if brightness > 0 {
                 gpio.set_high();
             } else {
                 gpio.set_low();
             }
-            return Ok(());
         }
-        Err(())
     }
 
     /// Cycle LED color/state with logging
@@ -95,41 +94,32 @@ where
     TX: TxChannel,
 {
     /// Set LED color/brightness using WS2812.
-    pub fn set_color(&mut self, brightness: u8) -> Result<(), ()> {
+    pub fn set_color(&mut self, brightness: u8) {
         if let Some(ws2812) = &mut self.ws2812 {
-            if brightness > 0 {
-                // Generate HSV color with cycling hue
+            // Choose color: HSV cycling when on, or black when off
+            let rgb = if brightness > 0 {
                 let hsv = Hsv {
                     hue: self.hue,
-                    sat: 255,  // Full saturation for vibrant colors
-                    val: brightness,  // Use brightness as value
+                    sat: 255,
+                    val: brightness,
                 };
                 let rgb = hsv2rgb(hsv);
-
                 // Advance hue for next call
                 self.hue = self.hue.wrapping_add(15);
-
-                match ws2812.write([rgb].iter().cloned()) {
-                    Ok(_) => return Ok(()),
-                    Err(_) => return Err(()),
-                }
+                rgb
             } else {
-                // Turn off LED
-                let black = RGB8::new(0, 0, 0);
-                match ws2812.write([black].iter().cloned()) {
-                    Ok(_) => return Ok(()),
-                    Err(_) => return Err(()),
-                }
-            }
+                RGB8::new(0, 0, 0)
+            };
+            // Send color, ignore any errors
+            let _ = ws2812.write([rgb].iter().cloned());
         }
-        Err(())
     }
 
-    pub fn set_color_rgb(&mut self, r: u8, g: u8, b: u8) -> Result<(), ()> {
-        self.ws2812
+    pub fn set_color_rgb(&mut self, r: u8, g: u8, b: u8)  {
+        let _ =self.ws2812
             .as_mut()
             .map(|ws2812| ws2812.write([RGB8::new(r, g, b)].iter().cloned()).map_err(|_| ()))
-            .unwrap_or(Err(()))
+            .unwrap_or(Err(()));
     }
 
 
@@ -138,14 +128,19 @@ where
         if self.ws2812.is_some() {
             if brightness > 0 {
                 debug!("WS2812 LED - On");
-                let _ = self.set_color(brightness);
+                self.set_color(brightness);
             } else {
                 debug!("WS2812 LED - Off");
-                let _ = self.set_color(0);
+                self.set_color(0);
             }
         }
         Timer::after(Duration::from_millis(500)).await;
     }
 }
 
-// pub type LedType = Led<TxChannel>;
+// Messages for the LED task
+#[derive(Copy, Clone)]
+pub enum LedCommand {
+    Solid(u8, u8, u8),
+    Blink(u8, u8, u8, Option<u16>),  // r, g, b, period_ms
+}

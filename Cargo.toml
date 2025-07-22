@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "esp-sgp41-VOC-NOx"
+name = "esp_sgp41_voc_nox"
 version = "0.1.0"
 
 [features]
