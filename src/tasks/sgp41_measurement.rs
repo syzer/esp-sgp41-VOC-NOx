@@ -36,13 +36,10 @@ pub async fn sgp41_measurement_task(
         cmd_with_params[2..8].copy_from_slice(&params);
 
         // ── write ─────────────────────────────────────────────────────────────
-        {
-            let mut guard = bus.lock().await;
-            if guard.write(SGP41_ADDR, &cmd_with_params).is_err() {
-                error!("Failed to send measurement command");
-                Timer::after(Duration::from_secs(1)).await;
-                continue;
-            }
+        if bus.lock().await.write(SGP41_ADDR, &cmd_with_params).is_err() {
+            error!("Failed to send measurement command");
+            Timer::after(Duration::from_secs(1)).await;
+            continue;
         }
 
         // wait 50 ms before reading

@@ -123,11 +123,6 @@ async fn main(_spawner: Spawner) {
     > = StaticCell::new();
     let led: &'static _ = LED_CELL.init(Mutex::new(led_hw));
 
-    // let mut guard = led.lock().await;
-    // let _ = guard.set_color_rgb(30, 0, 30);
-    // let _ = led.set_color_rgb(30, 0, 30);
-
-
     // Initialize WiFi/BLE
     let rng = esp_hal::rng::Rng::new(peripherals.RNG);
     let timer1 = TimerGroup::new(peripherals.TIMG0);
