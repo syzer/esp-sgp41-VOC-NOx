@@ -147,10 +147,10 @@ async fn main(_spawner: Spawner) {
 
 
     // Run the burn‑in first; it will spawn the measurement task when done.
-    _spawner.spawn(sgp41_conditioning_task(i2c_bus, 10, led_sender)).unwrap();
-    _spawner.spawn(sgp41_measurement_task(i2c_bus, led_sender2)).unwrap();
-    _spawner.spawn(led_task(led_receiver, led)).unwrap();
-
+    _spawner.must_spawn(sgp41_conditioning_task(i2c_bus, 10, led_sender));
+    _spawner.must_spawn(sgp41_measurement_task(i2c_bus, led_sender2));
+    _spawner.must_spawn(led_task(led_receiver, led));
+    
     // Nothing else to do here; park the main task.
     loop {
         Timer::after(Duration::from_secs(60)).await;
