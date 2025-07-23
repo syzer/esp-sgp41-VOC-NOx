@@ -11,6 +11,12 @@ build:
 run:
     cargo run
 
+# Monitor RTT INFO output (lists probes, then attaches and filters for INFO)
+monitor:
+    probe-rs list
+    probe-rs attach --chip esp32c6 --probe 303a:1001:F0:F5:BD:01:BC:9C target/riscv32imac-unknown-none-elf/debug/esp-sgp41-VOC-NOx | grep INFO
+
+
 # Build in release mode
 build-release:
     cargo build --release
