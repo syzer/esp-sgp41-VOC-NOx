@@ -1,11 +1,13 @@
 use crate::led::LedCommand;
 use core::sync::atomic::Ordering;
-use defmt::{error, info, warn};
+use defmt::{error, info};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::Sender;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use embedded_hal_02::blocking::i2c::{Read, Write};
+use gas_index_algorithm::GasIndexAlgorithm;
+use core::cell::RefCell;
 
 use crate::hal::I2cCompat;
 use crate::prepare_temp_hum_params;
@@ -15,6 +17,8 @@ use crate::tasks::conditioning::{CMD_MEASURE_RAW_SIGNALS, CONDITION_DONE, SGP41_
 pub async fn sgp41_measurement_task(
     bus: &'static Mutex<NoopRawMutex, I2cCompat<'static>>,
     _led_sender: Sender<'static, NoopRawMutex, LedCommand, 4>,
+    voc_algo: &'static RefCell<GasIndexAlgorithm>,
+    nox_algo: &'static RefCell<GasIndexAlgorithm>,
 ) {
     // Wait until conditioning has handed over the bus.
     while !CONDITION_DONE.load(Ordering::Acquire) {
@@ -22,12 +26,6 @@ pub async fn sgp41_measurement_task(
     }
 
     info!("Starting normal measurements…");
-
-    // --- VOC/NOx index calibration constants ---
-    const VOC_OFFSET: f32 = 25000.0;
-    const VOC_SCALE: f32 = 50.0;   // tune so that raw≈30449 → index≈104
-    const NOX_OFFSET: f32 = 25000.0;
-    const NOX_SCALE: f32 = 50.0;
 
     loop {
         // Prepare measurement command with temperature (25 °C) and humidity (50 % RH).
@@ -62,30 +60,30 @@ pub async fn sgp41_measurement_task(
         info!("  VOC Raw: {} ticks", voc_raw);
         info!("  NOx Raw: {} ticks", nox_raw);
 
-        let voc_index = ((voc_raw as f32 - VOC_OFFSET) / VOC_SCALE).max(0.0);
-        let nox_index = ((nox_raw as f32 - NOX_OFFSET) / NOX_SCALE).max(0.0);
+        let voc_index = voc_algo.borrow_mut().process(voc_raw as i32);
+        let nox_index = nox_algo.borrow_mut().process(nox_raw as i32);
 
-        info!("  VOC Index (approx): {}", voc_index as u32);
-        info!("  NOx Index (approx): {}", nox_index as u32);
+        info!("  VOC Index: {}", voc_index);
+        info!("  NOx Index: {}", nox_index);
 
-        // Determine base color from VOC level
-        let mut color = if voc_index > 180.0 {
-            warn!("High VOC levels detected!");
-            [30, 0, 0]
-        } else if voc_index > 120.0 {
-            [30, 30, 0]
+        let mut color = if voc_index > 155 {
+            [30, 0, 0]          // red
+        } else if voc_index > 114 {
+            [30, 10, 20]        // pink
+        } else if voc_index > 92 {
+            [30, 30, 0]         // yellow
         } else {
-            [0, 30, 0]
+            // [0, 30, 0]          // green
+            [21, 27, 28]        // royal concerto , kinda green
         };
 
-        // Override if NOx is high
-        if nox_index > 30.0 {
-            warn!("High NOx levels detected!");
-            color = [0, 30, 0];
+        // Override for NOx
+        if nox_index > 30 {
+            color = [30, 0, 30]; // magenta
         }
 
         // Send blink command
         _led_sender.send(LedCommand::Blink(color[0], color[1], color[2], None)).await;
-        Timer::after(Duration::from_secs(2)).await;
+        Timer::after(Duration::from_secs(1)).await;
     }
 }

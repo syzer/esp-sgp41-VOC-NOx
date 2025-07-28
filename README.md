@@ -225,3 +225,127 @@ VOC Index 104   NOx Index 1
 SRAW_VOC 30309  SRAW_NOx 15927
 VOC Index 104   NOx Index 1
 ```
+
+FO    Conditioning 5/10
+INFO  Setting LED to solid color: R=30, G=0, B=30
+INFO      VOC raw: 30133
+INFO    Conditioning 6/10
+INFO  Setting LED to solid color: R=30, G=0, B=30
+INFO      VOC raw: 30149
+INFO    Conditioning 7/10
+INFO  Setting LED to solid color: R=30, G=0, B=30
+INFO      VOC raw: 30152
+INFO    Conditioning 8/10
+INFO  Setting LED to solid color: R=30, G=0, B=30
+INFO      VOC raw: 30164
+INFO    Conditioning 9/10
+INFO  Setting LED to solid color: R=30, G=0, B=30
+INFO      VOC raw: 30180
+INFO    Conditioning 10/10
+INFO  Setting LED to solid color: R=30, G=0, B=30
+INFO      VOC raw: 30174
+INFO  Conditioning complete!
+INFO  Setting LED to solid color: R=0, G=30, B=0
+INFO  Starting normal measurements…
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30192 ticks
+INFO    NOx Raw: 18997 ticks
+INFO    VOC Index (approx): 103
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30326 ticks
+INFO    NOx Raw: 18839 ticks
+INFO    VOC Index (approx): 106
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30404 ticks
+INFO    NOx Raw: 18662 ticks
+INFO    VOC Index (approx): 108
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30428 ticks
+INFO    NOx Raw: 18523 ticks
+INFO    VOC Index (approx): 108
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30444 ticks
+INFO    NOx Raw: 18408 ticks
+INFO    VOC Index (approx): 108
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30463 ticks
+INFO    NOx Raw: 18285 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30473 ticks
+INFO    NOx Raw: 18187 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30475 ticks
+INFO    NOx Raw: 18088 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30475 ticks
+INFO    NOx Raw: 17998 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30473 ticks
+INFO    NOx Raw: 17906 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30480 ticks
+INFO    NOx Raw: 17821 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30471 ticks
+INFO    NOx Raw: 17746 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30467 ticks
+INFO    NOx Raw: 17660 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30459 ticks
+INFO    NOx Raw: 17586 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30467 ticks
+INFO    NOx Raw: 17518 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30472 ticks
+INFO    NOx Raw: 17450 ticks
+INFO    VOC Index (approx): 109
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300
+INFO  SGP41 Raw Measurements:
+INFO    VOC Raw: 30449 ticks
+INFO    NOx Raw: 17387 ticks
+INFO    VOC Index (approx): 108
+INFO    NOx Index (approx): 0
+INFO  Blink LED: R=0, G=30, B=0, Period=300

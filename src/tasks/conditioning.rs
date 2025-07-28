@@ -8,6 +8,8 @@ use embassy_sync::channel::Sender;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use embedded_hal_02::blocking::i2c::{Read, Write};
+use gas_index_algorithm::GasIndexAlgorithm;
+use core::cell::RefCell;
 
 pub static CONDITION_DONE: AtomicBool = AtomicBool::new(false);
 pub const SGP41_ADDR: u8 = 0x59;
@@ -24,6 +26,7 @@ pub async fn sgp41_conditioning_task(
     bus: &'static Mutex<NoopRawMutex, I2cCompat<'static>>,
     duration_secs: u8,
     led_sender: Sender<'static, NoopRawMutex, LedCommand, 4>,
+    voc_algo: &'static RefCell<GasIndexAlgorithm>,
 ) {
     info!("Starting SGP41 conditioning phase ({} s)…", duration_secs);
 
@@ -53,6 +56,8 @@ pub async fn sgp41_conditioning_task(
         if bus.lock().await.read(SGP41_ADDR, &mut buf).is_ok() {
             let voc_raw = u16::from_be_bytes([buf[0], buf[1]]);
             info!("    VOC raw: {}", voc_raw);
+            let voc_index = voc_algo.borrow_mut().process(voc_raw as i32);
+            info!("    VOC index: {}", voc_index);
         }
 
         // wait 1 s between conditioning cycles

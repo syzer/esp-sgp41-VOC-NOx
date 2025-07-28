@@ -34,6 +34,9 @@ use static_cell::StaticCell;
 
 use esp_hal::rmt::{Channel as RmtChannel, Rmt};
 
+use gas_index_algorithm::{AlgorithmType, GasIndexAlgorithm};
+use core::cell::RefCell;
+
 // ── shared state between the two tasks ───────────────────────────────────────
 static I2C_BUS_CELL: StaticCell<Mutex<NoopRawMutex, I2cCompat<'static>>> = StaticCell::new();
 
@@ -43,6 +46,9 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 // A bounded queue for LED commands (4 entries)
 static LED_QUEUE: StaticCell<SyncChannel<NoopRawMutex, LedCommand, 4>> = StaticCell::new();
+
+static VOC_ALGO_CELL: StaticCell<RefCell<GasIndexAlgorithm>> = StaticCell::new();
+static NOX_ALGO_CELL: StaticCell<RefCell<GasIndexAlgorithm>> = StaticCell::new();
 
 #[esp_hal_embassy::main]
 async fn main(_spawner: Spawner) {
@@ -132,6 +138,11 @@ async fn main(_spawner: Spawner) {
     let led_sender2 = led_sender;
     let led_receiver: Receiver<'static, NoopRawMutex, LedCommand, 4> = led_queue.receiver();
 
+    let voc_algo: &'static _ =
+        VOC_ALGO_CELL.init(RefCell::new(GasIndexAlgorithm::new(AlgorithmType::Voc, 1.0)));
+    let nox_algo: &'static _ =
+        NOX_ALGO_CELL.init(RefCell::new(GasIndexAlgorithm::new(AlgorithmType::Nox, 1.0)));
+
     // Initialize WiFi/BLE
     let rng = esp_hal::rng::Rng::new(peripherals.RNG);
     let timer1 = TimerGroup::new(peripherals.TIMG0);
@@ -147,8 +158,13 @@ async fn main(_spawner: Spawner) {
 
 
     // Run the burn‑in first; it will spawn the measurement task when done.
-    _spawner.must_spawn(sgp41_conditioning_task(i2c_bus, 10, led_sender));
-    _spawner.must_spawn(sgp41_measurement_task(i2c_bus, led_sender2));
+    _spawner.must_spawn(sgp41_conditioning_task(i2c_bus, 10, led_sender, voc_algo));
+    _spawner.must_spawn(sgp41_measurement_task(
+        i2c_bus,
+        led_sender2,
+        voc_algo,
+        nox_algo,
+    ));
     _spawner.must_spawn(led_task(led_receiver, led));
     
     // Nothing else to do here; park the main task.

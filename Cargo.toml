@@ -56,6 +56,7 @@ panic-rtt-target = { version = "0.2.0", features = ["defmt"] }
 rtt-target = { version = "0.6.1", features = ["defmt"] }
 static_cell = { version = "2.1.0", features = ["nightly"] }
 trouble-host = { version = "0.1.0", features = ["gatt"] }
+gas-index-algorithm = { version = "0.1.3" }
 
 # I2C dependencies
 embedded-hal-02 = { package = "embedded-hal", version = "0.2.7" }
